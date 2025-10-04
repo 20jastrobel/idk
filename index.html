@@ -1,0 +1,984 @@
+<!doctype html>
+<!--
+MIT License
+
+Copyright (c) 2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the “Software”), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions: The above copyright
+notice and this permission notice shall be included in all copies or substantial
+portions of the Software. THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY
+OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Unit Converter + Symbolic Mirror (SI dimensional algebra)</title>
+<meta name="color-scheme" content="light dark">
+<style>
+/* ---------- Tailwind-like micro-utility (no external assets) ---------- */
+:root {
+  --bg: #ffffff; --fg:#0b1220; --muted:#6b7280; --accent:#2563eb; --accent-2:#06b6d4;
+  --card:#f6f7fb; --ring:#93c5fd; --bad:#ef4444; --good:#16a34a; --border:#e5e7eb;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --radius: 12px;
+}
+@media (prefers-color-scheme:dark) {
+ :root { --bg:#0b1220; --fg:#eef2ff; --muted:#94a3b8; --accent:#60a5fa; --accent-2:#67e8f9; --card:#111827; --ring:#1d4ed8; --border:#1f2937; }
+}
+:root[data-theme="dark"] {
+  --bg:#0b1220; --fg:#eef2ff; --muted:#94a3b8; --accent:#60a5fa; --accent-2:#67e8f9; --card:#111827; --ring:#1d4ed8; --border:#1f2937;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; line-height:1.35;}
+a{color:var(--accent)}
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;gap:16px}
+.grid-cols-2{grid-template-columns: 1fr 1fr}
+@media (max-width:900px){.grid-cols-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.col{display:flex; flex-direction:column; gap:8px}
+label{font-size:12px;color:var(--muted)}
+input[type="text"], input[type="number"], select {
+  width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:transparent; color:inherit;
+}
+input[type="range"]{width:100%}
+kbd{font-family:var(--mono); background:var(--border); color:inherit; padding:2px 6px; border-radius:6px; font-size:12px}
+.badge{font-size:12px; padding:2px 8px; border-radius:999px; background:var(--border); color:var(--muted)}
+.btn{appearance:none; border:1px solid var(--border); background:linear-gradient(180deg, var(--accent), var(--accent-2)); color:#001519; font-weight:600;
+     padding:10px 14px; border-radius:10px; cursor:pointer; transition:filter .15s ease; }
+.btn.secondary{background:transparent;color:inherit;border-color:var(--ring)}
+.btn:focus{outline:3px solid var(--ring); outline-offset:2px}
+.small{font-size:12px}
+hr{border:none;border-top:1px solid var(--border); margin:8px 0}
+.mono{font-family:var(--mono)}
+.dim{color:var(--muted)}
+.flex{display:flex}
+.space-between{justify-content:space-between; align-items:center}
+.copyable{user-select:all}
+.tag{display:inline-flex; gap:4px; align-items:center; padding:2px 6px; border-radius:6px; background:var(--border); font-size:12px}
+ul.inline{display:flex;flex-wrap:wrap;gap:8px; list-style:none; padding:0; margin:0}
+.code{font-family:var(--mono); font-size:13px; background:rgba(127,127,127,.12); border:1px solid var(--border); padding:4px 8px; border-radius:8px}
+.hidden{display:none !important}
+.live{min-height:1.6em}
+.footer{opacity:.8; font-size:12px; margin-top:8px}
+.table{width:100%; border-collapse:collapse}
+.table td{padding:6px 4px; border-bottom:1px dashed var(--border); font-size:13px}
+.toggle{display:flex; gap:12px; align-items:center}
+.switch{position:relative;width:44px;height:24px;background:var(--border);border-radius:999px}
+.switch::after{content:"";position:absolute;width:18px;height:18px;top:3px;left:3px;border-radius:999px;background:#fff;transition:all .2s}
+.switch.on{background:var(--accent)}
+.switch.on::after{left:23px}
+.warn{color:var(--bad)}
+.pass{color:var(--good)}
+/* keyboard focus ring: */
+:focus-visible{outline:3px solid var(--ring); outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="container" role="application" aria-label="Unit Converter with Symbolic Mirror">
+  <header class="row space-between" style="margin-bottom:8px">
+    <div>
+      <h1 style="margin:0;font-size:20px">Unit Converter <span class="dim">+ Symbolic Mirror</span></h1>
+      <div class="small dim">Exact rational scales · 7-base SI vectors · algebraic expansions (Ω → V/A → kg·m²·s⁻³·A⁻² → …)</div>
+    </div>
+    <div class="row">
+      <button id="darkBtn" class="btn secondary" title="Toggle dark mode" aria-pressed="false">Dark</button>
+      <button id="permalinkBtn" class="btn secondary" title="Copy permalink">Permalink</button>
+    </div>
+  </header>
+
+  <main class="grid grid-cols-2" id="layout">
+    <!-- LEFT: Inputs -->
+    <section class="card" aria-labelledby="inputTitle">
+      <h2 id="inputTitle" style="margin:0 0 6px 0;font-size:16px">Input</h2>
+      <div class="col">
+        <div class="row">
+          <div class="col" style="flex:1;min-width:180px">
+            <label for="value">Value (use scientific, e.g. 6.022e23). Optional uncertainty in separate field.</label>
+            <input id="value" inputmode="decimal" type="text" value="50" aria-describedby="valueHelp" />
+            <div id="valueHelp" class="small dim">Press <kbd>Enter</kbd> to convert.</div>
+          </div>
+          <div class="col" style="width:160px;min-width:150px">
+            <label for="sigma">± Uncertainty (optional)</label>
+            <input id="sigma" inputmode="decimal" type="text" placeholder="e.g. 0.5" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="col" style="flex:1;min-width:240px">
+            <label for="fromUnit">From unit</label>
+            <input id="fromUnit" list="allUnits" placeholder="e.g. Ω, V, m, °C…" value="Ω" autocomplete="off" />
+          </div>
+          <div class="col" style="flex:1;min-width:240px">
+            <label for="toUnit">To unit (same dimension)</label>
+            <input id="toUnit" list="filteredUnits" placeholder="e.g. V/A, kΩ, s⁻¹…" value="V/A" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="min-width:180px">
+            <label>Rounding</label>
+            <div class="row">
+              <label class="toggle"><input type="radio" name="roundMode" id="modeSig" checked> <span>Sig figs</span></label>
+              <input id="sigFigs" type="number" min="1" max="20" value="2" style="width:84px" aria-label="Significant figures">
+              <label class="toggle"><input type="radio" name="roundMode" id="modeFix"> <span>Fixed decimals</span></label>
+              <input id="fixedDp" type="number" min="0" max="20" value="3" style="width:84px" aria-label="Fixed decimals">
+            </div>
+          </div>
+          <div class="col" style="min-width:220px">
+            <label>Symbolic expansion depth</label>
+            <div class="row" style="align-items:center">
+              <input id="depth" type="range" min="1" max="6" step="1" value="3" aria-valuemin="1" aria-valuemax="6" aria-valuenow="3" style="flex:1">
+              <span id="depthOut" class="badge">3</span>
+              <button id="expandBtn" class="btn secondary" title="Expand symbolic equalities">Expand</button>
+            </div>
+          </div>
+          <div class="col" style="min-width:180px">
+            <label>Options</label>
+            <div class="row">
+              <label class="toggle"><input type="checkbox" id="showBases" checked> <span>Show base dimensions</span></label>
+              <label class="toggle"><input type="checkbox" id="showAlts" checked> <span>Show alt forms</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="convertBtn" class="btn">Convert</button>
+          <button id="copyBtn" class="btn secondary">Copy result</button>
+          <span id="status" class="small dim" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+      <datalist id="allUnits"></datalist>
+      <datalist id="filteredUnits"></datalist>
+    </section>
+
+    <!-- RIGHT: Results -->
+    <section class="card" aria-labelledby="resultTitle">
+      <h2 id="resultTitle" style="margin:0 0 10px 0;font-size:16px">Results</h2>
+      <div id="resultPrimary" class="copyable mono live" aria-live="polite"></div>
+      <div id="resultUnc" class="mono dim"></div>
+      <div id="dimsRow" class="small" style="margin-top:8px"></div>
+      <hr>
+      <div id="mirrorWrap">
+        <div class="row space-between">
+          <div class="small dim">Symbolic mirror (algebraically equivalent units, same numeric value)</div>
+          <div class="small"><span class="badge">No scaling in identities</span></div>
+        </div>
+        <div class="row" style="gap:20px; align-items:flex-start; margin-top:8px">
+          <div class="col" style="flex:1;min-width:260px">
+            <div class="dim small">From-unit expansions</div>
+            <div id="mirrorFrom" class="mono"></div>
+          </div>
+          <div class="col" style="flex:1;min-width:260px">
+            <div class="dim small">To-unit expansions</div>
+            <div id="mirrorTo" class="mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="card" aria-labelledby="testsTitle">
+    <details open>
+      <summary id="testsTitle" class="row space-between">
+        <span>Self-tests</span>
+        <span class="small dim">Deterministic checks: dimensions, affine, identities, round-trip</span>
+      </summary>
+      <div id="tests" class="mono small"></div>
+    </details>
+  </section>
+
+  <footer class="footer">
+    <div>Keyboard: <kbd>Enter</kbd> convert, <kbd>/</kbd> focus value, <kbd>;</kbd> focus “from”, <kbd>'</kbd> focus “to”.</div>
+  </footer>
+</div>
+
+<!-- ---------- Embedded Ontology (units + identity graph) ---------- -->
+<script type="application/json" id="units">
+{
+  "bases": ["kg","m","s","A","K","mol","cd"],
+  "units": [
+    /* --- Base SI --- */
+    {"id":"kg","symbol":"kg","name":"kilogram","dims":{"kg":1,"m":0,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["kilogram","kilograms"],"systems":["SI"],"category":["mass"]},
+    {"id":"g","symbol":"g","name":"gram","dims":{"kg":1,"m":0,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":["gram","grams"],"systems":["SI"],"category":["mass"]},
+
+    {"id":"m","symbol":"m","name":"meter","dims":{"kg":0,"m":1,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["metre","meters","metres"],"systems":["SI"],"category":["length"]},
+    {"id":"km","symbol":"km","name":"kilometer","dims":{"kg":0,"m":1,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1000","1"],"offset":["0","1"],"aliases":["kilometre"],"systems":["SI"],"category":["length"]},
+    {"id":"mm","symbol":"mm","name":"millimeter","dims":{"kg":0,"m":1,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":["millimetre"],"systems":["SI"],"category":["length"]},
+    {"id":"um","symbol":"µm","name":"micrometer","dims":{"kg":0,"m":1,"s":0,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1000000"],"offset":["0","1"],"aliases":["micrometre","uM","micro-meter","micron"],"systems":["SI"],"category":["length"]},
+
+    {"id":"s","symbol":"s","name":"second","dims":{"kg":0,"m":0,"s":1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["sec","seconds"],"systems":["SI"],"category":["time"]},
+    {"id":"min","symbol":"min","name":"minute","dims":{"kg":0,"m":0,"s":1,"A":0,"K":0,"mol":0,"cd":0},"scale":["60","1"],"offset":["0","1"],"aliases":["minutes"],"systems":["SI"],"category":["time"]},
+    {"id":"h","symbol":"h","name":"hour","dims":{"kg":0,"m":0,"s":1,"A":0,"K":0,"mol":0,"cd":0},"scale":["3600","1"],"offset":["0","1"],"aliases":["hr","hours"],"systems":["SI"],"category":["time"]},
+
+    {"id":"A","symbol":"A","name":"ampere","dims":{"kg":0,"m":0,"s":0,"A":1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["amp","amps"],"systems":["SI"],"category":["current"]},
+    {"id":"mA","symbol":"mA","name":"milliampere","dims":{"kg":0,"m":0,"s":0,"A":1,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":["milliamp"],"systems":["SI"],"category":["current"]},
+    {"id":"uA","symbol":"µA","name":"microampere","dims":{"kg":0,"m":0,"s":0,"A":1,"K":0,"mol":0,"cd":0},"scale":["1","1000000"],"offset":["0","1"],"aliases":["microamp","uA"],"systems":["SI"],"category":["current"]},
+
+    {"id":"K","symbol":"K","name":"kelvin","dims":{"kg":0,"m":0,"s":0,"A":0,"K":1,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["kelvins"],"systems":["SI"],"category":["temperature"]},
+    {"id":"degC","symbol":"°C","name":"celsius","dims":{"kg":0,"m":0,"s":0,"A":0,"K":1,"mol":0,"cd":0},"scale":["1","1"],"offset":["27315","100"],"aliases":["C","celsius","degree celsius"],"systems":["SI"],"category":["temperature"]},
+    {"id":"degF","symbol":"°F","name":"fahrenheit","dims":{"kg":0,"m":0,"s":0,"A":0,"K":1,"mol":0,"cd":0},"scale":["5","9"],"offset":["45967","100"],"aliases":["F","fahrenheit","degree fahrenheit"],"systems":["imperial"],"category":["temperature"]},
+
+    {"id":"mol","symbol":"mol","name":"mole","dims":{"kg":0,"m":0,"s":0,"A":0,"K":0,"mol":1,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["amount"]},
+    {"id":"cd","symbol":"cd","name":"candela","dims":{"kg":0,"m":0,"s":0,"A":0,"K":0,"mol":0,"cd":1},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["luminous-intensity"]},
+
+    /* --- Frequency & angular rate --- */
+    {"id":"Hz","symbol":"Hz","name":"hertz","dims":{"kg":0,"m":0,"s":-1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["1/s","s^-1"],"systems":["SI"],"category":["frequency"]},
+    {"id":"kHz","symbol":"kHz","name":"kilohertz","dims":{"kg":0,"m":0,"s":-1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1000","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["frequency"]},
+    {"id":"MHz","symbol":"MHz","name":"megahertz","dims":{"kg":0,"m":0,"s":-1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1000000","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["frequency"]},
+    {"id":"rad_per_s","symbol":"rad/s","name":"radian per second","dims":{"kg":0,"m":0,"s":-1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["rad s^-1"],"systems":["SI"],"category":["frequency"]},
+
+    /* --- Electrical --- */
+    {"id":"V","symbol":"V","name":"volt","dims":{"kg":1,"m":2,"s":-3,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["voltage"]},
+    {"id":"mV","symbol":"mV","name":"millivolt","dims":{"kg":1,"m":2,"s":-3,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["voltage"]},
+    {"id":"kV","symbol":"kV","name":"kilovolt","dims":{"kg":1,"m":2,"s":-3,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1000","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["voltage"]},
+
+    {"id":"ohm","symbol":"Ω","name":"ohm","dims":{"kg":1,"m":2,"s":-3,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["ohm","Ω","ohms"],"systems":["SI"],"category":["resistance","impedance","reactance"]},
+    {"id":"kohm","symbol":"kΩ","name":"kiloohm","dims":{"kg":1,"m":2,"s":-3,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1000","1"],"offset":["0","1"],"aliases":["kOhm"],"systems":["SI"],"category":["resistance","impedance","reactance"]},
+    {"id":"Mohm","symbol":"MΩ","name":"megaohm","dims":{"kg":1,"m":2,"s":-3,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1000000","1"],"offset":["0","1"],"aliases":["MOhm"],"systems":["SI"],"category":["resistance","impedance","reactance"]},
+
+    {"id":"S","symbol":"S","name":"siemens","dims":{"kg":-1,"m":-2,"s":3,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["mho"],"systems":["SI"],"category":["conductance","admittance"]},
+    {"id":"mS","symbol":"mS","name":"millisiemens","dims":{"kg":-1,"m":-2,"s":3,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["conductance","admittance"]},
+    {"id":"uS","symbol":"µS","name":"microsiemens","dims":{"kg":-1,"m":-2,"s":3,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1000000"],"offset":["0","1"],"aliases":["uS"],"systems":["SI"],"category":["conductance","admittance"]},
+
+    {"id":"F","symbol":"F","name":"farad","dims":{"kg":-1,"m":-2,"s":4,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["capacitance"]},
+    {"id":"uF","symbol":"µF","name":"microfarad","dims":{"kg":-1,"m":-2,"s":4,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1000000"],"offset":["0","1"],"aliases":["uF"],"systems":["SI"],"category":["capacitance"]},
+    {"id":"nF","symbol":"nF","name":"nanofarad","dims":{"kg":-1,"m":-2,"s":4,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1000000000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["capacitance"]},
+    {"id":"pF","symbol":"pF","name":"picofarad","dims":{"kg":-1,"m":-2,"s":4,"A":2,"K":0,"mol":0,"cd":0},"scale":["1","1000000000000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["capacitance"]},
+
+    {"id":"H","symbol":"H","name":"henry","dims":{"kg":1,"m":2,"s":-2,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["inductance","reactance"]},
+    {"id":"mH","symbol":"mH","name":"millihenry","dims":{"kg":1,"m":2,"s":-2,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["inductance","reactance"]},
+    {"id":"uH","symbol":"µH","name":"microhenry","dims":{"kg":1,"m":2,"s":-2,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1","1000000"],"offset":["0","1"],"aliases":["uH"],"systems":["SI"],"category":["inductance","reactance"]},
+
+    /* --- Power / Energy / Force / Pressure / Flux density --- */
+    {"id":"W","symbol":"W","name":"watt","dims":{"kg":1,"m":2,"s":-3,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["power"]},
+    {"id":"mW","symbol":"mW","name":"milliwatt","dims":{"kg":1,"m":2,"s":-3,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1000"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["power"]},
+    {"id":"kW","symbol":"kW","name":"kilowatt","dims":{"kg":1,"m":2,"s":-3,"A":0,"K":0,"mol":0,"cd":0},"scale":["1000","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["power"]},
+
+    {"id":"J","symbol":"J","name":"joule","dims":{"kg":1,"m":2,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["energy"]},
+    {"id":"Wh","symbol":"Wh","name":"watt-hour","dims":{"kg":1,"m":2,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["3600","1"],"offset":["0","1"],"aliases":["W·h","W h"],"systems":["other"],"category":["energy"]},
+    {"id":"eV","symbol":"eV","name":"electronvolt","dims":{"kg":1,"m":2,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["1602176634","100000000000000000000000000"],"offset":["0","1"],"aliases":["electron-volt"],"systems":["SI"],"category":["energy"]},
+
+    {"id":"N","symbol":"N","name":"newton","dims":{"kg":1,"m":1,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["force"]},
+    {"id":"Pa","symbol":"Pa","name":"pascal","dims":{"kg":1,"m":-1,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":[],"systems":["SI"],"category":["pressure"]},
+    {"id":"bar","symbol":"bar","name":"bar","dims":{"kg":1,"m":-1,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["100000","1"],"offset":["0","1"],"aliases":[],"systems":["CGS"],"category":["pressure"]},
+    {"id":"atm","symbol":"atm","name":"standard atmosphere","dims":{"kg":1,"m":-1,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["101325","1"],"offset":["0","1"],"aliases":["atmosphere"],"systems":["other"],"category":["pressure"]},
+
+    {"id":"C","symbol":"C","name":"coulomb","dims":{"kg":0,"m":0,"s":1,"A":1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["ampere-second","A·s"],"systems":["SI"],"category":["charge"]},
+    {"id":"T","symbol":"T","name":"tesla","dims":{"kg":1,"m":0,"s":-2,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["tesla (magnetic flux density)"],"systems":["SI"],"category":["magnetic-flux-density"]},
+    {"id":"Wb","symbol":"Wb","name":"weber","dims":{"kg":1,"m":2,"s":-2,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["V·s","volt-second"],"systems":["SI"],"category":["magnetic-flux"]},
+
+    /* --- “Composite” convenience symbols for testing & mirrors (scale=1) --- */
+    {"id":"V_per_A","symbol":"V/A","name":"volt per ampere","dims":{"kg":1,"m":2,"s":-3,"A":-2,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["V A^-1"],"systems":["SI"],"category":["resistance","impedance"]},
+    {"id":"per_s","symbol":"s^-1","name":"per second","dims":{"kg":0,"m":0,"s":-1,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["1/s"],"systems":["SI"],"category":["frequency"]},
+    {"id":"N_m","symbol":"N·m","name":"newton meter","dims":{"kg":1,"m":2,"s":-2,"A":0,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["N m"],"systems":["SI"],"category":["energy","torque"]},
+    {"id":"V_s","symbol":"V·s","name":"volt second","dims":{"kg":1,"m":2,"s":-2,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["Vs"],"systems":["SI"],"category":["magnetic-flux"]},
+    {"id":"V_s_m2","symbol":"V·s·m^-2","name":"volt second per square meter","dims":{"kg":1,"m":0,"s":-2,"A":-1,"K":0,"mol":0,"cd":0},"scale":["1","1"],"offset":["0","1"],"aliases":["V s m^-2"],"systems":["SI"],"category":["magnetic-flux-density"]}
+  ],
+  "derived": [
+    /* Identities with scale EXACTLY 1 (used for symbolic expansions). Multiple alternatives allowed. */
+    {"lhs":"ohm","rhs":[["V",1],["A",-1]]},
+    {"lhs":"S","rhs":[["A",1],["V",-1]]},
+
+    {"lhs":"V","rhs":[["W",1],["A",-1]]},
+    {"lhs":"W","rhs":[["V",1],["A",1]]},
+
+    {"lhs":"J","rhs":[["W",1],["s",1]]},
+    {"lhs":"J","rhs":[["N",1],["m",1]]},
+
+    {"lhs":"N","rhs":[["kg",1],["m",1],["s",-2]]},
+    {"lhs":"Pa","rhs":[["N",1],["m",-2]]},
+
+    {"lhs":"Hz","rhs":[["s",-1]]},
+    {"lhs":"T","rhs":[["V",1],["s",1],["m",-2]]},
+    {"lhs":"Wb","rhs":[["V",1],["s",1]]},
+
+    /* Composite conveniences */
+    {"lhs":"V_per_A","rhs":[["V",1],["A",-1]]},
+    {"lhs":"per_s","rhs":[["s",-1]]},
+    {"lhs":"N_m","rhs":[["N",1],["m",1]]},
+    {"lhs":"V_s","rhs":[["V",1],["s",1]]},
+    {"lhs":"V_s_m2","rhs":[["V",1],["s",1],["m",-2]]}
+  ]
+}
+</script>
+
+<!-- ---------- Application Module ---------- -->
+<script type="module">
+/** ============================================================================
+ *  Dimensional Algebra + Exact Rational Arithmetic Unit Converter
+ *  – Dimensions: 7-vector exponents (kg, m, s, A, K, mol, cd) as integers (ℚ ok)
+ *  – Scales/Offsets: exact rationals (BigInt numerator/denominator) to SI
+ *  – Conversion: value_SI = (value + offset_U) * scale_U; value_V = value_SI / scale_V − offset_V
+ *  – Affine sanity: only temperature units have nonzero offset (guarded)
+ *  – Symbolic mirror: scale-1 identity rewrites on unit expressions; no numeric change
+ *  – Rounding: propagate input significant figures by default; fixed-decimals optional
+ *  – Accessibility: labelled controls, ARIA live regions, keyboard shortcuts
+ *  – Permalink: state encoded in location.hash (base64 JSON)
+ *  – License: MIT (see header)
+ *  ==========================================================================*/
+
+/* ------------------------------ Utilities --------------------------------- */
+/** Greatest common divisor for BigInt */
+function bigGcd(a,b){ a = a<0n?-a:a; b=b<0n?-b:b; while(b){ const t=a%b; a=b; b=t;} return a||1n; }
+/** Power-of-10 BigInt */
+function pow10(n){ n = Number(n); if(n<0) throw new Error("pow10 exponent negative"); let r=1n; for(let i=0;i<n;i++) r*=10n; return r; }
+/** Count decimal digits of BigInt (base-10) */
+function digits10(x){ x = x<0n?-x:x; return x.toString().length; }
+
+/** Rational number with exact arithmetic using BigInt (normalized). */
+class Rat {
+  /** @param {bigint} num numerator; @param {bigint} den denominator (positive) */
+  constructor(num, den=1n){
+    if(den===0n) throw new Error("Division by zero");
+    if(den<0n){ num=-num; den=-den; }
+    const g = bigGcd(num,den);
+    this.n = num/g; this.d = den/g;
+  }
+  static ZERO(){ return new Rat(0n,1n); }
+  static ONE(){ return new Rat(1n,1n); }
+  /** From [p,q] (numbers or strings) */
+  static fromPair(pq){
+    const [p,q] = pq;
+    const N = typeof p==="string" ? BigInt(p) : BigInt(p);
+    const D = typeof q==="string" ? BigInt(q) : BigInt(q);
+    return new Rat(N,D);
+  }
+  /** Parse decimal/scientific string exactly into rational */
+  static fromDecimalString(str){
+    if(typeof str!=="string") str = String(str);
+    str = str.trim();
+    if(!str) throw new Error("Empty number");
+    let sgn = 1n;
+    if(str[0]==="+"){ str=str.slice(1); }
+    else if(str[0]==="-"){ sgn=-1n; str=str.slice(1); }
+    // Split exponent if present
+    let mant = str, exp10 = 0;
+    const epos = str.toLowerCase().indexOf("e");
+    if(epos>=0){
+      mant = str.slice(0,epos);
+      exp10 = parseInt(str.slice(epos+1),10);
+      if(!Number.isFinite(exp10)) throw new Error("Bad exponent");
+    }
+    // Separate integer and fractional
+    let intPart = mant, fracPart = "";
+    const dot = mant.indexOf(".");
+    if(dot>=0){ intPart = mant.slice(0,dot)||"0"; fracPart = mant.slice(dot+1); }
+    // Remove underscores or spaces if any (not expected, just defensive)
+    intPart = intPart.replace(/_/g,""); fracPart = fracPart.replace(/_/g,"");
+    if(!/^\d+$/.test(intPart) || (fracPart && !/^\d+$/.test(fracPart))) throw new Error("Bad number");
+    // Remove leading zeros
+    intPart = intPart.replace(/^0+(?=\d)/,"");
+    const fracDigits = fracPart.length;
+    let num = BigInt(intPart + fracPart);
+    let denPow = fracDigits - exp10;
+    if(denPow>=0){
+      const den = pow10(denPow);
+      return new Rat(sgn*num, den);
+    }else{
+      const mul = pow10(-denPow);
+      return new Rat(sgn*num*mul, 1n);
+    }
+  }
+  add(b){ return new Rat(this.n*b.d + b.n*this.d, this.d*b.d); }
+  sub(b){ return new Rat(this.n*b.d - b.n*this.d, this.d*b.d); }
+  mul(b){ return new Rat(this.n*b.n, this.d*b.d); }
+  div(b){ if(b.n===0n) throw new Error("Division by zero"); return new Rat(this.n*b.d, this.d*b.n); }
+  neg(){ return new Rat(-this.n,this.d); }
+  abs(){ return new Rat(this.n<0n?-this.n:this.n, this.d); }
+  eq(b){ return this.n===b.n && this.d===b.d; }
+  isZero(){ return this.n===0n; }
+  /** Sign: -1, 0, 1 */
+  sgn(){ return this.n<0n?-1:(this.n>0n?1:0); }
+
+  /** Round to fixed decimals, returns plain string (no exponent), exact half-up */
+  toFixed(dp){
+    dp = Math.max(0, Math.min(200, Number(dp)));
+    if(this.isZero()) return (dp?("0."+ "0".repeat(dp)):"0");
+    // q = round(n * 10^dp / d)
+    const sign = this.n<0n?"-":"";
+    const num = this.n<0n?-this.n:this.n;
+    const scale = pow10(dp);
+    const scaled = num*scale;
+    const q = scaled / this.d;
+    const r = scaled % this.d;
+    const qRounded = q + ( (2n*r >= this.d) ? 1n : 0n );
+    const qStr = qRounded.toString();
+    if(dp===0) return sign + qStr;
+    const k = qStr.length;
+    if(k<=dp){
+      return sign + "0." + "0".repeat(dp-k) + qStr;
+    }else{
+      return sign + qStr.slice(0,k-dp) + "." + qStr.slice(k-dp);
+    }
+  }
+
+  /** Round to N significant figures; returns either plain or scientific "E" notation for extremes */
+  toSig(N){
+    N = Math.max(1, Math.min(200, Number(N)));
+    if(this.isZero()) return "0";
+    const sign = this.n<0n?"-":"";
+    const num = this.n<0n?-this.n:this.n;
+    // value ~ 10^e * m, m in [1,10)
+    const e = digits10(num) - digits10(this.d) - 1;
+    // q = round( value * 10^(N-1-e) )
+    let scaleExp = (N - 1) - e;
+    let q, r, den = this.d;
+    if(scaleExp>=0){
+      const M = pow10(scaleExp);
+      const scaled = num*M;
+      q = scaled / den; r = scaled % den;
+    }else{
+      // scaleExp negative: divide num by 10^(-scaleExp) before division
+      const M = pow10(-scaleExp);
+      // q = round( (num/M) / den ) is not right; instead compute q via rational:
+      // We want round( num / den * 10^(N-1-e) ), if 10^(N-1-e) = 1/M
+      // That equals round( (num) / (den*M) )
+      const den2 = den * M;
+      q = num / den2; r = num % den2; den = den2;
+    }
+    let qRounded = q + ( (2n*r >= den) ? 1n : 0n );
+    // Handle carry that increases digit count
+    if(qRounded.toString().length > N){
+      qRounded = qRounded / 10n;
+      // Increase exponent by 1
+      const outE = e + 1;
+      return sign + qRounded.toString()[0] + (N>1?("." + qRounded.toString().slice(1)):"") + "E" + (outE>=0?("+"+outE):outE);
+    }
+    const s = qRounded.toString().padStart(N,"0");
+    const outE = e;
+    // For moderate magnitudes, print plain (no E) by inserting decimal point back
+    const plainExp = outE; // digits before decimal minus 1
+    if(plainExp>=-4 && plainExp<=6){
+      // Insert decimal point after (plainExp+1) digits
+      const k = plainExp + 1;
+      if(k<=0){
+        const body = "0." + "0".repeat(-k) + s;
+        return sign + (N>1?trimTrailingZeros(body):body);
+      }else if(k>=s.length){
+        const body = s + "0".repeat(k - s.length);
+        return sign + (N>1?trimTrailingZeros(body):body);
+      }else{
+        const body = s.slice(0,k) + (N>1?"."+s.slice(k):"");
+        return sign + trimTrailingZeros(body);
+      }
+    }else{
+      return sign + s[0] + (N>1?("." + s.slice(1)):"") + "E" + (outE>=0?("+"+outE):outE);
+    }
+  }
+  toNumber(){ return Number(this.n)/Number(this.d); } // only for display heuristics
+  toString(){ return this.n + "/" + this.d; }
+}
+function trimTrailingZeros(txt){
+  if(!txt.includes(".")) return txt;
+  txt = txt.replace(/\.?0+$/,"");
+  return txt.endsWith(".") ? txt.slice(0,-1) : txt;
+}
+
+/* ------------------------------ Ontology ---------------------------------- */
+const ONT = JSON.parse(document.getElementById("units").textContent);
+const BASES = ONT.bases;
+const IDX = (function buildIndexes(){
+  const units = ONT.units.map(u => ({
+    ...u,
+    dimsArr: BASES.map(b => Number(u.dims[b]||0))
+  }));
+  const byId = new Map(units.map(u => [u.id,u]));
+  const bySymbol = new Map(units.map(u => [u.symbol,u]));
+  const aliasPairs = [];
+  units.forEach(u=>{
+    (u.aliases||[]).forEach(a => aliasPairs.push([a.toLowerCase(), u]));
+    // also index ASCII micro equivalents:
+    if(u.symbol.includes("µ")) aliasPairs.push([u.symbol.replace(/µ/g,"u"), u]);
+  });
+  const byAlias = new Map(aliasPairs);
+  // Precompute dims buckets for performance
+  const dimsKey = (u)=>u.dimsArr.join(",");
+  const buckets = new Map();
+  for(const u of units){
+    const k = dimsKey(u);
+    if(!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(u);
+  }
+  // Derived identity map: Map<lhs, Array< Array<[id,exp]> >>
+  const derived = new Map();
+  for(const rule of ONT.derived){
+    if(!derived.has(rule.lhs)) derived.set(rule.lhs, []);
+    derived.get(rule.lhs).push(rule.rhs.map(([id,exp])=>[String(id), Number(exp)]));
+  }
+  return { units, byId, bySymbol, byAlias, buckets, derived, dimsKey };
+})();
+
+/* ---------------------------- Algebra on dims ------------------------------ */
+function dimsAdd(a,b){ const r = a.slice(); for(let i=0;i<r.length;i++) r[i]+=b[i]; return r; }
+function dimsSub(a,b){ const r = a.slice(); for(let i=0;i<r.length;i++) r[i]-=b[i]; return r; }
+function dimsEq(a,b){ for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false; return true; }
+function dimsStr(arr){
+  const parts = [];
+  for(let i=0;i<arr.length;i++){
+    const e = arr[i]; if(e===0) continue;
+    const s = BASES[i] + (e===1? "": ("^"+e));
+    parts.push(s);
+  }
+  return parts.length? parts.join("·") : "1";
+}
+
+/* ---------------------------- Unit lookup --------------------------------- */
+function findUnit(token){
+  if(!token) return null;
+  // exact id
+  if(IDX.byId.has(token)) return IDX.byId.get(token);
+  // exact symbol
+  if(IDX.bySymbol.has(token)) return IDX.bySymbol.get(token);
+  // normalize micro ascii
+  const micro = token.replace(/u/g,"µ");
+  if(IDX.bySymbol.has(micro)) return IDX.bySymbol.get(micro);
+  // alias (case-insensitive)
+  const a = token.toLowerCase();
+  if(IDX.byAlias.has(a)) return IDX.byAlias.get(a);
+  // Try trimmed variants
+  if(IDX.bySymbol.has(token.trim())) return IDX.bySymbol.get(token.trim());
+  return null;
+}
+
+/* -------------------------- Scale/Offset access ---------------------------- */
+function ratFrom(u, key){ return Rat.fromPair(u[key]); }
+function toSI(value, unit){
+  // value_SI = (value + offset) * scale
+  const off = ratFrom(unit,"offset");
+  const scl = ratFrom(unit,"scale");
+  return value.add(off).mul(scl);
+}
+function fromSI(valueSI, unit){
+  // value = valueSI/scale - offset
+  const scl = ratFrom(unit,"scale");
+  const off = ratFrom(unit,"offset");
+  return valueSI.div(scl).sub(off);
+}
+
+/* --------------------------- Conversion Engine ----------------------------- */
+/** Converts v (Rat) and optional sigma (Rat|null) from unit U to unit V. Validates dimensions and affine semantics. */
+function convert(v, sigma, U, V){
+  if(!dimsEq(U.dimsArr, V.dimsArr)){
+    throw new DimensionalError(`Dimension mismatch: ${U.symbol} ≡ ${dimsStr(U.dimsArr)} vs ${V.symbol} ≡ ${dimsStr(V.dimsArr)}`);
+  }
+  const affineU = !(ratFrom(U,"offset").isZero());
+  const affineV = !(ratFrom(V,"offset").isZero());
+  // Only temperature have affine offsets; enforce
+  const tempDims = [0,0,0,0,1,0,0];
+  if((affineU || affineV) && !dimsEq(U.dimsArr, tempDims)){
+    throw new Error("Affine offsets are only valid for temperature units.");
+  }
+  const vSI = toSI(v, U);
+  const out = fromSI(vSI, V);
+  let sigmaOut = null;
+  if(sigma){
+    // Propagate: sigma_SI = sigma * scale_U; sigma_V = sigma_SI / scale_V
+    const sigSI = sigma.mul(ratFrom(U,"scale"));
+    sigmaOut = sigSI.div(ratFrom(V,"scale"));
+  }
+  return { value: out, sigma: sigmaOut };
+}
+class DimensionalError extends Error {}
+
+/* --------------------------- Significant figures --------------------------- */
+function countSigFigs(s){
+  // Heuristic: count all digits except leading zeros; trailing zeros significant only if decimal point present
+  s = String(s).trim();
+  s = s.replace(/[eE][+-]?\d+$/,""); // drop exponent for counting
+  if(!/[0-9]/.test(s)) return 0;
+  if(s.includes(".")){
+    const clean = s.replace(/^0+/, "").replace(".", "");
+    return clean.replace(/^0+/, "").replace(/[^0-9]/g,"").length;
+  }else{
+    // integer: remove leading zeros; trailing zeros count
+    const clean = s.replace(/^0+/, "");
+    return clean.replace(/[^0-9]/g,"").length;
+  }
+}
+function formatRat(r, mode, n){
+  if(mode==="sig") return r.toSig(n);
+  else return r.toFixed(n);
+}
+
+/* ----------------------------- Suggestions -------------------------------- */
+function levenshtein(a,b){
+  a=String(a); b=String(b);
+  const m=a.length,n=b.length; const dp=Array.from({length:m+1},()=>Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) dp[i][0]=i; for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){
+    const cost = a[i-1]===b[j-1]?0:1;
+    dp[i][j]=Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+  }
+  return dp[m][n];
+}
+function suggestUnit(token){
+  const pool = IDX.units.map(u=>u.symbol).concat(Array.from(IDX.byAlias.keys()));
+  const scored = pool.map(s=>[s, levenshtein(token, s)]).sort((a,b)=>a[1]-b[1]).slice(0,3);
+  return scored.map(x=>x[0]);
+}
+
+/* --------------------------- Unit expression ------------------------------ */
+function exprFromUnit(u){ return new Map([[u.id,1]]); }
+/** Simplify expression Map<UnitId,intExp> (remove zeros) */
+function exprSimplify(expr){
+  for(const [k,v] of Array.from(expr.entries())){
+    if(v===0) expr.delete(k);
+  }
+  return expr;
+}
+function exprToString(expr){
+  if(expr.size===0) return "1";
+  const parts = [];
+  const pos = [], neg = [];
+  [...expr.entries()].sort(([a],[b])=>a.localeCompare(b)).forEach(([id,e])=>{
+    const unit = IDX.byId.get(id); if(!unit) return;
+    const sym = unit.symbol || id;
+    if(e>0) pos.push(sym + (e===1?"":("^"+e)));
+    else if(e<0) neg.push(sym + (e===-1?"":("^"+(-e))));
+  });
+  const left = pos.join("·") || "1";
+  const right = neg.join("·");
+  return right ? (left + "/" + right) : left;
+}
+/** Compose dims of expression */
+function exprDims(expr){
+  let acc = [0,0,0,0,0,0,0];
+  for(const [id,e] of expr.entries()){
+    const u = IDX.byId.get(id);
+    for(let i=0;i<acc.length;i++) acc[i]+=u.dimsArr[i]*e;
+  }
+  return acc;
+}
+/** Expand one step using scale-1 identities; returns array of new exprs (unique by string) */
+function expandOnce(expr){
+  const out = new Map(); // key->expr
+  for(const [id,e] of expr.entries()){
+    const rules = IDX.derived.get(id);
+    if(!rules) continue;
+    for(const rhs of rules){
+      const nxt = new Map(expr);
+      nxt.delete(id);
+      for(const [rid,rexp] of rhs){
+        nxt.set(rid, (nxt.get(rid)||0) + rexp*e);
+      }
+      exprSimplify(nxt);
+      const key = exprToString(nxt);
+      out.set(key, nxt);
+    }
+  }
+  return Array.from(out.values());
+}
+/** Expand recursively up to depth; avoid cycles with visited set of stringified expr */
+function expandDepth(expr, depth){
+  const frontier = [expr];
+  const seen = new Set([exprToString(expr)]);
+  const outputs = [];
+  for(let d=0; d<depth; d++){
+    const next = [];
+    for(const ex of frontier){
+      const items = expandOnce(ex);
+      for(const it of items){
+        const k = exprToString(it);
+        if(!seen.has(k)){
+          seen.add(k); next.push(it); outputs.push(it);
+        }
+      }
+    }
+    if(next.length===0) break;
+    frontier.splice(0,frontier.length, ...next);
+  }
+  // sort: fewest factors first, then lexicographic for stability
+  outputs.sort((a,b)=>{
+    const al=a.size, bl=b.size;
+    if(al!==bl) return al-bl;
+    return exprToString(a).localeCompare(exprToString(b));
+  });
+  return outputs;
+}
+
+/* ------------------------------ UI wiring --------------------------------- */
+const els = {
+  value: document.getElementById("value"),
+  sigma: document.getElementById("sigma"),
+  from: document.getElementById("fromUnit"),
+  to: document.getElementById("toUnit"),
+  allUnits: document.getElementById("allUnits"),
+  filtUnits: document.getElementById("filteredUnits"),
+  convert: document.getElementById("convertBtn"),
+  copy: document.getElementById("copyBtn"),
+  status: document.getElementById("status"),
+  result: document.getElementById("resultPrimary"),
+  resUnc: document.getElementById("resultUnc"),
+  dimsRow: document.getElementById("dimsRow"),
+  expandBtn: document.getElementById("expandBtn"),
+  depth: document.getElementById("depth"),
+  depthOut: document.getElementById("depthOut"),
+  showBases: document.getElementById("showBases"),
+  showAlts: document.getElementById("showAlts"),
+  mirrorFrom: document.getElementById("mirrorFrom"),
+  mirrorTo: document.getElementById("mirrorTo"),
+  dark: document.getElementById("darkBtn"),
+  permalinkBtn: document.getElementById("permalinkBtn"),
+  modeSig: document.getElementById("modeSig"),
+  modeFix: document.getElementById("modeFix"),
+  sigFigs: document.getElementById("sigFigs"),
+  fixedDp: document.getElementById("fixedDp"),
+  tests: document.getElementById("tests")
+};
+function populateAllUnits(){
+  const opts = IDX.units.map(u=>`<option value="${u.symbol}" label="${u.name} (${u.id})">`).join("");
+  els.allUnits.innerHTML = opts;
+}
+populateAllUnits();
+
+/** Update target datalist to only show dimension-compatibles with current "from" unit (bucketed) */
+function updateTargetList(){
+  const U = findUnit(els.from.value.trim());
+  let options = "";
+  if(U){
+    const bucket = IDX.buckets.get(IDX.dimsKey(U)) || [];
+    options = bucket.map(u=>`<option value="${u.symbol}" label="${u.name} (${u.id})">`).join("");
+  }else{
+    // fallback: all
+    options = IDX.units.map(u=>`<option value="${u.symbol}" label="${u.name} (${u.id})">`).join("");
+  }
+  els.filtUnits.innerHTML = options;
+}
+updateTargetList();
+
+/** Permalink encoder/decoder */
+function setPermalink(){
+  const state = {
+    v: els.value.value, s: els.sigma.value, U: els.from.value, V: els.to.value,
+    mode: els.modeSig.checked?"sig":"fix", sf: Number(els.sigFigs.value), dp: Number(els.fixedDp.value),
+    depth: Number(els.depth.value), showB: els.showBases.checked, showA: els.showAlts.checked
+  };
+  const json = JSON.stringify(state);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  location.hash = "#"+b64;
+}
+function loadPermalink(){
+  if(location.hash.length>1){
+    try{
+      const json = decodeURIComponent(escape(atob(location.hash.slice(1))));
+      const s = JSON.parse(json);
+      if(s.v!==undefined) els.value.value = s.v;
+      if(s.s!==undefined) els.sigma.value = s.s;
+      if(s.U) els.from.value = s.U;
+      if(s.V) els.to.value = s.V;
+      if(s.mode==="sig"){ els.modeSig.checked=true; els.modeFix.checked=false; }
+      else if(s.mode==="fix"){ els.modeFix.checked=true; els.modeSig.checked=false; }
+      if(Number.isFinite(+s.sf)) els.sigFigs.value = s.sf;
+      if(Number.isFinite(+s.dp)) els.fixedDp.value = s.dp;
+      if(Number.isFinite(+s.depth)) els.depth.value = s.depth;
+      if(typeof s.showB==="boolean") els.showBases.checked = s.showB;
+      if(typeof s.showA==="boolean") els.showAlts.checked = s.showA;
+    }catch(e){ /* ignore */ }
+  }
+}
+loadPermalink();
+
+/* --------------------------- Conversion handler ---------------------------- */
+let lastMirrorCache = { from:null, to:null, valueStr:null, mirrorsFrom:[], mirrorsTo:[] };
+
+function doConvert(){
+  els.status.textContent = "";
+  lastMirrorCache = { from:null, to:null, valueStr:null, mirrorsFrom:[], mirrorsTo:[] };
+  try{
+    const U = findUnit(els.from.value.trim());
+    const V = findUnit(els.to.value.trim());
+    if(!U){ const sug = suggestUnit(els.from.value.trim()); throw new Error(`Unknown “from” unit: ${els.from.value}. Try: ${sug.join(", ")}`); }
+    if(!V){ const sug = suggestUnit(els.to.value.trim()); throw new Error(`Unknown “to” unit: ${els.to.value}. Try: ${sug.join(", ")}`); }
+    // parse numbers
+    const vStr = els.value.value.trim();
+    const v = Rat.fromDecimalString(vStr);
+    const sigIn = countSigFigs(vStr) || 3;
+    const sigma = els.sigma.value.trim()? Rat.fromDecimalString(els.sigma.value.trim()) : null;
+
+    const { value: out, sigma: sOut } = convert(v, sigma, U, V);
+
+    // rounding mode
+    const mode = els.modeSig.checked? "sig": "fix";
+    const sig = els.modeSig.checked? Number(els.sigFigs.value||sigIn) : sigIn;
+    const dp = Number(els.fixedDp.value||3);
+
+    const shown = formatRat(out, mode, els.modeSig.checked?sig:dp);
+    const shownIn = formatRat(v, mode, els.modeSig.checked?sig:dp);
+    let uncTxt = "";
+    if(sOut){
+      const shownSig = formatRat(sOut, mode, els.modeSig.checked?sig:dp);
+      uncTxt = `± ${shownSig} ${V.symbol}`;
+    }
+    els.result.textContent = `${shownIn} ${U.symbol} = ${shown} ${V.symbol}`;
+    els.resUnc.textContent = uncTxt;
+
+    // dimensions
+    const baseFrom = dimsStr(U.dimsArr);
+    const baseTo = dimsStr(V.dimsArr);
+    els.dimsRow.innerHTML = `
+      ${els.showBases.checked? `<span class="tag" title="Base dimensions of ${U.symbol}">${U.symbol} ≡ <span class="mono">${baseFrom}</span></span>`:""}
+      ${els.showBases.checked? `<span class="tag" title="Base dimensions of ${V.symbol}">${V.symbol} ≡ <span class="mono">${baseTo}</span></span>`:""}
+      <span class="tag">Category: ${[...new Set([...(U.category||[]),...(V.category||[])])].join(", ")}</span>
+    `;
+
+    // set mirrors
+    if(els.showAlts.checked){
+      const depth = Number(els.depth.value);
+      const valStr = formatRat(out, mode, els.modeSig.checked?sig:dp);
+      renderMirrors(U, V, valStr, depth);
+    } else {
+      els.mirrorFrom.textContent = "";
+      els.mirrorTo.textContent = "";
+    }
+
+    setPermalink();
+  }catch(err){
+    console.error(err);
+    els.result.textContent = "";
+    els.resUnc.textContent = "";
+    els.dimsRow.innerHTML = "";
+    const msg = (err instanceof DimensionalError)? "Dimension mismatch: " + err.message : err.message;
+    els.status.innerHTML = `<span class="warn">${escapeHtml(msg)}</span>`;
+  }
+}
+
+function renderMirrors(U, V, valueStr, depth){
+  const fromExpr = exprFromUnit(U);
+  const toExpr = exprFromUnit(V);
+  const outsF = expandDepth(fromExpr, depth);
+  const outsT = expandDepth(toExpr, depth);
+  const fmt = (expr)=> `${valueStr} ${exprToString(expr)}`;
+  const wrapList = (list)=> list.slice(0,24).map(e=>`<div class="code">${escapeHtml(fmt(e))}</div>`).join("");
+  els.mirrorFrom.innerHTML = `<div class="code">${escapeHtml(valueStr + " " + exprToString(fromExpr))}</div>` + wrapList(outsF);
+  els.mirrorTo.innerHTML = `<div class="code">${escapeHtml(valueStr + " " + exprToString(toExpr))}</div>` + wrapList(outsT);
+  lastMirrorCache = { from:U, to:V, valueStr, mirrorsFrom:outsF, mirrorsTo:outsT };
+}
+
+function expandMore(){
+  // Increase depth and re-render based on cache (idempotent with doConvert since we recompute anyway)
+  const U = lastMirrorCache.from || findUnit(els.from.value.trim());
+  const V = lastMirrorCache.to || findUnit(els.to.value.trim());
+  if(!U || !V) return;
+  const depth = Number(els.depth.value);
+  const vStr = els.value.value.trim();
+  const v = Rat.fromDecimalString(vStr);
+  const mode = els.modeSig.checked? "sig": "fix";
+  const sig = els.modeSig.checked? Number(els.sigFigs.value||countSigFigs(vStr)||3) : undefined;
+  const dp = Number(els.fixedDp.value||3);
+  const out = convert(v, null, U, V).value;
+  const valueStr = formatRat(out, mode, els.modeSig.checked?sig:dp);
+  renderMirrors(U,V,valueStr,depth);
+}
+
+/* ----------------------------- Self-tests --------------------------------- */
+function runTests(){
+  const log = [];
+  const ok = (name)=> log.push(`<div class="pass">PASS</div><div>– ${escapeHtml(name)}</div>`);
+  const bad = (name,why)=> log.push(`<div class="warn">FAIL</div><div>– ${escapeHtml(name)} <span class="dim">(${escapeHtml(why)})</span></div>`);
+  function assertEq(name, lhs, rhs){
+    if(lhs.eq(rhs)) ok(name); else bad(name, `${lhs.toString()} vs ${rhs.toString()}`);
+  }
+  try{
+    // 1 Ω ↔ 1 V/A
+    const one = Rat.ONE();
+    assertEq("1 Ω = 1 V/A", convert(one,null,findUnit("Ω"),findUnit("V/A")).value, one);
+    assertEq("1 V/A = 1 Ω", convert(one,null,findUnit("V/A"),findUnit("Ω")).value, one);
+    // 1 Hz ↔ 1 s^-1
+    assertEq("1 Hz = 1 s^-1", convert(one,null,findUnit("Hz"),findUnit("s^-1")).value, one);
+    // 1 °C ↔ 274.15 K
+    const valK = convert(Rat.ONE(),null,findUnit("°C"),findUnit("K")).value;
+    const expect = Rat.fromDecimalString("274.15");
+    assertEq("1 °C → 274.15 K", valK, expect);
+    // 1 atm ↔ 101325 Pa
+    assertEq("1 atm = 101325 Pa", convert(one,null,findUnit("atm"),findUnit("Pa")).value, Rat.fromPair(["101325","1"]));
+    // 1 kΩ ↔ 1000 Ω
+    assertEq("1 kΩ = 1000 Ω", convert(one,null,findUnit("kΩ"),findUnit("Ω")).value, Rat.fromPair(["1000","1"]));
+    // 1 J ↔ 1 N·m
+    assertEq("1 J = 1 N·m", convert(one,null,findUnit("J"),findUnit("N·m")).value, one);
+    // 1 T ↔ 1 V·s·m^-2
+    assertEq("1 T = 1 V·s·m^-2", convert(one,null,findUnit("T"),findUnit("V·s·m^-2")).value, one);
+    // Roundtrip U→SI→U
+    const v = Rat.fromDecimalString("123.456");
+    const U = findUnit("µH");
+    const si = toSI(v,U);
+    const back = fromSI(si,U);
+    assertEq("Round-trip U→SI→U identity", back, v);
+  }catch(e){
+    bad("Unexpected test error", e.message||String(e));
+  }
+  els.tests.innerHTML = `<div class="table">${log.map(x=>`<div class="row" style="gap:8px;align-items:center">${x}</div>`).join("")}</div>`;
+}
+
+/* ------------------------------ Helpers ----------------------------------- */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+function debounce(fn,ms){ let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ------------------------------ Events ------------------------------------ */
+const debouncedConvert = debounce(doConvert, 40);
+els.value.addEventListener("input", ()=>{
+  if(els.modeSig.checked){
+    const n = countSigFigs(els.value.value.trim()) || 3;
+    els.sigFigs.value = n;
+  }
+  debouncedConvert();
+});
+els.sigma.addEventListener("input", debouncedConvert);
+els.from.addEventListener("input", ()=>{ updateTargetList(); debouncedConvert(); });
+els.to.addEventListener("input", debouncedConvert);
+els.convert.addEventListener("click", doConvert);
+els.copy.addEventListener("click", ()=>{
+  const txt = `${els.result.textContent}${els.resUnc.textContent?(" ("+els.resUnc.textContent+")"):""}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    els.status.textContent = "Copied.";
+    setTimeout(()=>els.status.textContent="", 1200);
+  });
+});
+els.expandBtn.addEventListener("click", expandMore);
+els.depth.addEventListener("input", ()=>{
+  els.depthOut.textContent = els.depth.value;
+});
+els.showBases.addEventListener("change", doConvert);
+els.showAlts.addEventListener("change", doConvert);
+els.modeSig.addEventListener("change", doConvert);
+els.modeFix.addEventListener("change", doConvert);
+els.sigFigs.addEventListener("input", debouncedConvert);
+els.fixedDp.addEventListener("input", debouncedConvert);
+
+els.dark.addEventListener("click", ()=>{
+  const isDark = document.documentElement.dataset.theme==="dark";
+  if(isDark) delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme="dark";
+  els.dark.setAttribute("aria-pressed", String(!isDark));
+});
+els.permalinkBtn.addEventListener("click", ()=>{
+  setPermalink();
+  navigator.clipboard.writeText(location.href).then(()=>{
+    els.status.textContent = "Permalink copied.";
+    setTimeout(()=>els.status.textContent="", 1200);
+  });
+});
+
+// keyboard shortcuts
+window.addEventListener("keydown", (e)=>{
+  if(e.key==="/"){ e.preventDefault(); els.value.focus(); els.value.select(); }
+  if(e.key===";"){ e.preventDefault(); els.from.focus(); els.from.select(); }
+  if(e.key==="'" ){ e.preventDefault(); els.to.focus(); els.to.select(); }
+  if(e.key==="Enter"){ doConvert(); }
+});
+
+/* ----------------------------- Boot sequence ------------------------------- */
+doConvert();
+runTests();
+
+</script>
+</body>
+</html>
